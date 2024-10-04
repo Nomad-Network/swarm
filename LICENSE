@@ -1,21 +1,48 @@
-MIT License
+Nomad Ethical Technology License
 
 Copyright (c) 2024 Nomad Network
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
+Permission is hereby granted, free of charge, to any person obtaining a copy 
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
 to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Redistributions of source code must retain the above copyright notice, this
+list of conditions, and the following disclaimers.
+
+Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions, and the following disclaimers in the documentation
+and/or other materials provided with the distribution.
+
+Neither the name of Nomad Network nor the names of its contributors may be
+used to endorse or promote products derived from this software without
+specific prior written permission.
+
+The Software, or any derivatives thereof, may not be used in the creation,
+promotion, distribution, or production of content related to or involved with
+adult content, including but not limited to pornography or sexually explicit
+material.
+
+The Software, or any derivatives thereof, may not be used for any purpose
+related to war, armed conflict, or military operations, including but not
+limited to the development of weapons, military systems, or combat strategies.
+
+The Software, or any derivatives thereof, may not be used for activities
+involving or promoting gambling, interest-based financial transactions, the
+production or distribution of intoxicants, or other related activities.
+
+In any commercial use of the Software, the name and branding of Nomad Network
+must be prominently displayed in the first interaction with any user.
+"Prominently displayed" means the branding must be clearly visible and
+identifiable as originating from Nomad Network, and must appear in a
+non-dismissable manner during the initial launch or interaction of the
+commercial product or service with its users.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
