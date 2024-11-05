@@ -24,8 +24,8 @@
     // internet connectivity.
     .dependencies = .{
         .nomad = .{
-            .url = "git+https://github.com/Nomad-Network/nomad#e2ca82df47aacbcdbc92c057f05cab4060f5b73c",
-            .hash = "12206bec1bf53f518c0eca16678f99eecd5348f9ffdd830f97d6a2f3d42ad012de4a",
+            .url = "git+https://github.com/Nomad-Network/nomad#d5000f82cdcf5013909c9f9d1b86c95de3caeb19",
+            .hash = "1220469d0370add78a870db5fc482efa993b4d415feaf7b5790a1f948eca19e54d6c",
         },
         .@"nomad-proto" = .{
             .url = "git+https://github.com/Nomad-Network/proto#82429ba43b754dab4be4fa703fb5a5f434a2772b",
@@ -34,6 +34,10 @@
         .@"nomad-vm" = .{
             .url = "git+https://github.com/Nomad-Network/vm#35df2769629062d63a1eaa32ab8474daba4d840c",
             .hash = "1220cc5562a7d1cb787ca5b8c643f59d98abe369702d47f03ee320cda1c64a2c45b1",
+        },
+        .yazap = .{
+            .url = "git+https://github.com/prajwalch/yazap?ref=main#e9293645250e2bc172f100bb0467aea55b1d4f3e",
+            .hash = "12204e5a58b533fabc5ba5617552dd1d9b6f50d0807952806ac1e4360f1be55024eb",
         },
     },
     .paths = .{

@@ -2,9 +2,22 @@
 //! you are building an executable. If you are making a library, the convention
 //! is to delete this file and start with root.zig instead.
 const std = @import("std");
+const yazap = @import("yazap");
 const vm = @import("nomad-vm");
+const root = @import("./root.zig");
 
-pub fn main() void {
+pub fn main() !void {
+    var app = yazap.App.init(std.heap.page_allocator, "swarm", "Nomad Network swarm starter & orchestrator");
+    defer app.deinit();
+
+    var cmd = app.rootCommand();
+    var start = app.createCommand("start", "Start a nomad swarm");
+
+    try start.addArgs(&[_]yazap.Arg{
+        yazap.Arg.init("instances", "Number of instances to spin up"),
+        yazap.Arg.booleanOption("exec", 'e', "Enable program execution on this swarm"),
+    });
+    try cmd.addSubcommand(start);
     return;
 }
 

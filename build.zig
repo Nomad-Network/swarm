@@ -27,6 +27,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    const yazap = b.dependency("yazap", .{});
 
     const exe = b.addExecutable(.{
         .name = "nomad-swarm",
@@ -35,6 +36,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     exe.step.dependOn(&nomad_vm.artifact("libnomadvm").step);
+    exe.root_module.addImport("yazap", yazap.module("yazap"));
     exe.root_module.addImport("nomad", nomad.module("nomad"));
     exe.root_module.addImport("nomad-vm", nomad_vm.module("nomadvm"));
     exe.root_module.addImport("nomad-proto", nomad_proto.module("nomad-proto"));
