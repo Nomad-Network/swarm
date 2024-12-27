@@ -39,36 +39,35 @@ const InstanceContext = struct {
 };
 
 pub const Instance = struct {
+    const InstanceQueue = nomad.Queue(InstanceContext);
     id: []const u8,
 
-    allocator: std.mem.Allocator,
+    gpa: std.heap.GeneralPurposeAllocator(.{}),
     db_handle: *nomad.Database,
-    job_queue: *nomad.Queue(InstanceContext),
+    job_queue: *InstanceQueue,
 
     db_sleep: *bool,
 
-    pub fn init(allocator: std.mem.Allocator, swarm: []const u8, id: []const u8) !Instance {
+    pub fn init(swarm: []const u8, id: []const u8) !Instance {
+        var gpa = std.heap.GeneralPurposeAllocator(.{}){};
         var db_sleep = false;
-        var db = try nomad.Database.init(allocator, swarm ++ "-" ++ id);
-        var queue = nomad.Queue(InstanceContext).init(allocator, swarm ++ "-" ++ id, .{
-            .packet = null,
-            .database = &db,
-            .instance = null,
-            .connection = null,
-        });
+        var db = try nomad.Database.init(try std.fmt.allocPrint(gpa.allocator(), "{s}-{s}", .{ swarm, id }));
+        const queue_allocator = gpa.allocator();
+        var queue = InstanceQueue.init(queue_allocator, try std.fmt.allocPrint(queue_allocator, "{s}-{s}", .{ swarm, id }));
 
         return Instance{
             .id = id,
             .db_handle = &db,
             .job_queue = &queue,
             .db_sleep = &db_sleep,
-            .allocator = allocator,
+            .gpa = gpa,
         };
     }
 
     pub fn start(self: *Instance) !void {
         try self.job_queue.start();
-        _ = try std.Thread.spawn(.{ .allocator = self.allocator }, &Instance._commitTick, .{ self.db_handle, self.db_sleep });
+        std.log.debug("Instance.id={s}", .{self.id});
+        _ = try std.Thread.spawn(.{ .allocator = self.gpa.allocator() }, Instance._commitTick, .{ self.db_handle, self.db_sleep });
     }
 
     pub fn sleep(self: *Instance) void {
@@ -80,15 +79,15 @@ pub const Instance = struct {
     }
 
     pub fn process(self: *Instance, pkt: *nomad_proto.ProtocolPacket, connection: *std.net.Stream) !void {
-        self.job_queue.tasks.enqueue(.{
-            .name = self.id ++ "[" ++ @tagName(pkt.type) ++ "]",
-            .method = &self._process,
-            .ctx = &.{
+        try self.job_queue.tasks.enqueue(.{
+            .name = try std.fmt.allocPrint(self.gpa.allocator(), "{s}[{s}]", .{ self.id, @tagName(pkt.type) }),
+            .method = &Instance._process,
+            .ctx = @constCast(&InstanceContext{
                 .packet = pkt,
                 .database = self.db_handle,
                 .instance = self,
                 .connection = connection,
-            },
+            }),
         });
     }
 
@@ -99,7 +98,7 @@ pub const Instance = struct {
         }
     }
 
-    fn _process(ctx: *InstanceContext) void {
+    fn _process(ctx: *InstanceContext) InstanceQueue.Status {
         const pkt = ctx.packet orelse unreachable;
         var db = ctx.database orelse unreachable;
 
