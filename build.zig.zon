@@ -23,21 +23,21 @@
     // Once all dependencies are fetched, `zig build` no longer requires
     // internet connectivity.
     .dependencies = .{
-        .nomad = .{
-            .url = "git+https://github.com/Nomad-Network/nomad#d5000f82cdcf5013909c9f9d1b86c95de3caeb19",
-            .hash = "1220469d0370add78a870db5fc482efa993b4d415feaf7b5790a1f948eca19e54d6c",
-        },
         .@"nomad-proto" = .{
             .url = "git+https://github.com/Nomad-Network/proto#82429ba43b754dab4be4fa703fb5a5f434a2772b",
             .hash = "12208bfa21f4edd42460ff59b338467bcc6359b471ee7615c0e4b31b30e1914a4390",
         },
         .@"nomad-vm" = .{
-            .url = "git+https://github.com/Nomad-Network/vm#35df2769629062d63a1eaa32ab8474daba4d840c",
-            .hash = "1220cc5562a7d1cb787ca5b8c643f59d98abe369702d47f03ee320cda1c64a2c45b1",
+            .url = "git+https://github.com/Nomad-Network/vm?ref=main#cb286ba1db926a6c5a2fbd530e16bc361ea57c4e",
+            .hash = "1220626b856054ae6b9dd2aa255bde87d6d980a2624a4c79c98a954e538c32d9a755",
         },
         .yazap = .{
             .url = "git+https://github.com/prajwalch/yazap?ref=main#e9293645250e2bc172f100bb0467aea55b1d4f3e",
             .hash = "12204e5a58b533fabc5ba5617552dd1d9b6f50d0807952806ac1e4360f1be55024eb",
+        },
+        .nomad = .{
+            .url = "git+https://github.com/Nomad-Network/nomad?ref=main#dd4a6202e8976e07573200c1b24458bac1c2c640",
+            .hash = "122030fe10b89353b00f469a639b7c393b2d40eac1835b37d35c53811e9a29622725",
         },
     },
     .paths = .{
