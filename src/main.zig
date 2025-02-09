@@ -57,41 +57,19 @@ pub fn main() !void {
         }
 
         std.log.debug("inst: {any}, name: {s}, storage: {s}", .{ instances, swarm_name, swarm_storage });
-        var pool: std.Thread.Pool = undefined;
-        try std.Thread.Pool.init(&pool, .{.allocator = allocator, .n_jobs = 64});
+        var address = try std.net.Address.parseIp("127.0.0.1", 9807);
+        var server = try address.listen(.{});
     
-        const address = try std.net.Address.parseIp("127.0.0.1", 9807);
-    
-        const tpe: u32 = std.posix.SOCK.STREAM;
-        const protocol = std.posix.IPPROTO.TCP;
-        const listener = try std.posix.socket(address.any.family, tpe, protocol);
-        defer std.posix.close(listener);
-    
-        try std.posix.setsockopt(listener, std.posix.SOL.SOCKET, std.posix.SO.REUSEADDR, &std.mem.toBytes(@as(c_int, 1)));
-        try std.posix.bind(listener, &address.any, address.getOsSockLen());
-        try std.posix.listen(listener, 128);
-            
         var swarm = try root.Swarm.init(swarm_name, swarm_storage, instances);
         try swarm.start();
         std.log.info("Swarm started", .{});
         while (true) {
-            var client_address: std.net.Address = undefined;
-            var client_address_len: std.posix.socklen_t = @sizeOf(std.net.Address);
-            const socket = std.posix.accept(listener, &client_address.any, &client_address_len, 0) catch |err| {
-                std.debug.print("error accept: {}\n", .{err});
-                continue;
-            };
-    
-            const client = Client{ .socket = socket, .address = client_address };
-            try pool.spawn(Client.handle, .{client});
+            std.log.debug("Waiting for connection, {any}", .{server});
+            var client = try server.accept();
+            std.log.debug("Accepted connection: {any}", .{client.address});
+            const th = try std.Thread.spawn(.{ .allocator = allocator }, processConnection, .{ &client, &swarm });
+            th.detach();
         }
-        // while (true) {
-        //     std.log.debug("Waiting for connection, {any}", .{server});
-        //     var client = try server.accept();
-        //     std.log.debug("Accepted connection: {any}", .{client.address});
-        //     const th = try std.Thread.spawn(.{ .allocator = std.heap.page_allocator }, processConnection, .{ &client, &swarm });
-        //     th.detach();
-        // }
     }
     return;
 }

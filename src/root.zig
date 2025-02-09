@@ -4,6 +4,7 @@
 const std = @import("std");
 const nomad = @import("nomad");
 const nomad_proto = @import("nomad-proto");
+const NQ = @import("./queue.zig");
 
 /// Ensures that a directory exists at the given path.
 /// Creates it if it doesn't exist.
@@ -39,20 +40,20 @@ const InstanceContext = struct {
 };
 
 pub const Instance = struct {
-    const InstanceQueue = nomad.Queue(InstanceContext);
+    const InstanceQueue = NQ.JobQueue(*InstanceContext);
     id: []const u8,
 
-    gpa: std.heap.GeneralPurposeAllocator(.{}),
     db_handle: *nomad.Database,
     job_queue: *InstanceQueue,
+    allocator: std.mem.Allocator,
 
     db_sleep: *bool,
 
-    pub fn init(swarm: []const u8, id: []const u8) !Instance {
-        var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    pub fn init(allocator: std.mem.Allocator, swarm: []const u8, id: []const u8) !Instance {
         var db_sleep = false;
-        var db = try nomad.Database.init(try std.fmt.allocPrint(gpa.allocator(), "{s}-{s}", .{ swarm, id }));
-        const queue_allocator = gpa.allocator();
+        var db = try nomad.Database.init(try std.fmt.allocPrint(allocator, "{s}-{s}", .{ swarm, id }));
+        // try db.print();
+        const queue_allocator = allocator;
         var queue = InstanceQueue.init(queue_allocator, try std.fmt.allocPrint(queue_allocator, "{s}-{s}", .{ swarm, id }));
 
         return Instance{
@@ -60,14 +61,14 @@ pub const Instance = struct {
             .db_handle = &db,
             .job_queue = &queue,
             .db_sleep = &db_sleep,
-            .gpa = gpa,
+            .allocator = queue_allocator,
         };
     }
 
     pub fn start(self: *Instance) !void {
-        try self.job_queue.start();
         std.log.debug("Instance.id={s}", .{self.id});
-        _ = try std.Thread.spawn(.{ .allocator = self.gpa.allocator() }, Instance._commitTick, .{ self.db_handle, self.db_sleep });
+        // _ = try std.Thread.spawn(.{}, NQ.workerThread, .{ *InstanceContext, self.job_queue });
+        // _ = try std.Thread.spawn(.{}, Instance._commitTick, .{ self.db_handle, self.db_sleep });
     }
 
     pub fn sleep(self: *Instance) void {
@@ -79,10 +80,10 @@ pub const Instance = struct {
     }
 
     pub fn process(self: *Instance, pkt: *nomad_proto.ProtocolPacket, connection: *std.net.Stream) !void {
-        try self.job_queue.tasks.enqueue(.{
-            .name = try std.fmt.allocPrint(self.gpa.allocator(), "{s}[{s}]", .{ self.id, @tagName(pkt.type) }),
-            .method = &Instance._process,
-            .ctx = @constCast(&InstanceContext{
+        try self.job_queue.push(.{
+            .name = try std.fmt.allocPrint(self.allocator, "{s}[{s}]", .{ self.id, @tagName(pkt.type) }),
+            .execute = &Instance._process,
+            .context = @constCast(&InstanceContext{
                 .packet = pkt,
                 .database = self.db_handle,
                 .instance = self,
@@ -91,14 +92,14 @@ pub const Instance = struct {
         });
     }
 
-    fn _commitTick(db: *nomad.Database, should_sleep: *bool) void {
-        while (!should_sleep.*) {
+    fn _commitTick(db: *nomad.Database, _: *bool) void {
+        while (true) {
             db.commit() catch unreachable;
             std.time.sleep(10 * std.time.ns_per_s); // 10s
         }
     }
 
-    fn _process(ctx: *InstanceContext) InstanceQueue.Status {
+    fn _process(ctx: *InstanceContext) void {
         const pkt = ctx.packet orelse unreachable;
         var db = ctx.database orelse unreachable;
 
@@ -108,31 +109,31 @@ pub const Instance = struct {
                     .FETCH => {
                         var rec = db.getRecord(pkt.content.database.data.hash) catch {
                             std.log.info("grdb: {any}", .{pkt.content.database});
-                            ctx.connection.?.writeAll(&[_]u8{0}) catch return .failed;
+                            ctx.connection.?.writeAll(&[_]u8{0}) catch return;
                             ctx.connection.?.close();
-                            return .done;
+                            return;
                         };
-                        const record_data = rec.serialize() catch return .failed;
-                        ctx.connection.?.writeAll(record_data) catch return .failed;
+                        const record_data = rec.serialize() catch return;
+                        ctx.connection.?.writeAll(record_data) catch return;
                     },
                     .DELETE => {
-                        const ok = db.deleteRecord(pkt.content.database.data.hash) catch return .failed;
-                        ctx.connection.?.writeAll(&[1]u8{@intFromBool(ok)}) catch return .failed;
+                        const ok = db.deleteRecord(pkt.content.database.data.hash) catch return;
+                        ctx.connection.?.writeAll(&[1]u8{@intFromBool(ok)}) catch return;
                     },
                     .INSERT => {
                         std.log.debug("dbg: {s}", .{"Link?"});
-                        const record = nomad.Record.init(pkt.content.database.owner, pkt.content.database.permissions) catch return .failed;
+                        const record = nomad.Record.init(pkt.content.database.owner, pkt.content.database.permissions) catch return;
                         const hash = db.addRecord(record) catch unreachable;
-                        ctx.connection.?.writeAll(std.fmt.allocPrint(ctx.instance.?.gpa.allocator(), "{any}", .{hash}) catch unreachable) catch unreachable;
+                        ctx.connection.?.writeAll(std.fmt.allocPrint(ctx.instance.?.allocator, "{any}", .{hash}) catch unreachable) catch unreachable;
                     },
                 }
             },
             .EXECUTION => {
-                return .done;
+                return;
             },
         }
 
-        return .done;
+        return;
     }
 };
 
@@ -143,7 +144,7 @@ const SwarmContext = struct {
 };
 
 pub const Swarm = struct {
-    pub const SwarmQueue = nomad.Queue(SwarmContext);
+    pub const SwarmQueue = NQ.JobQueue(*SwarmContext);
 
     name: []const u8,
     selection_index: u8,
@@ -151,33 +152,30 @@ pub const Swarm = struct {
     instances: std.ArrayList(*Instance),
     job_queue: *SwarmQueue,
 
-    gpa: std.heap.GeneralPurposeAllocator(.{}),
-
     pub fn init(name: []const u8, storage_path: []const u8, num_of_instances: u8) !Swarm {
-        var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-        const queue_allocator = gpa.allocator();
+        var queue_allocator = std.heap.page_allocator;
         var queue = SwarmQueue.init(queue_allocator, name);
-        var instances = std.ArrayList(*Instance).init(gpa.allocator());
+        var instances = std.ArrayList(*Instance).init(queue_allocator);
 
-        try ensureDir(storage_path, gpa.allocator());
+        try ensureDir(storage_path, queue_allocator);
 
         for (range(num_of_instances), 0..) |_, i| {
-            const id = try std.fmt.allocPrint(gpa.allocator(), "instance-{any}", .{i});
-            const id_copy = try gpa.allocator().alloc(u8, id.len);
+            const id = try std.fmt.allocPrint(queue_allocator, "instance-{any}", .{i});
+            const id_copy = try queue_allocator.alloc(u8, id.len);
             std.mem.copyBackwards(u8, id_copy, id);
-            const swarm = try std.fmt.allocPrint(gpa.allocator(), "{s}/{s}", .{ storage_path, name });
+            const swarm = try std.fmt.allocPrint(queue_allocator, "{s}/{s}", .{ storage_path, name });
             std.log.debug("ids: {s}, {s}, {s}", .{ id_copy, id, swarm });
             const inst = try Instance.init(
+                queue_allocator,
                 swarm,
                 id_copy,
             );
-            const inst_copy = try gpa.allocator().create(Instance);
+            const inst_copy = try queue_allocator.create(Instance);
             inst_copy.* = inst;
             try instances.append(inst_copy);
         }
 
         return Swarm{
-            .gpa = gpa,
             .name = name,
             .storage_path = storage_path,
             .instances = instances,
@@ -192,17 +190,17 @@ pub const Swarm = struct {
             try i.start();
         }
 
-        try self.job_queue.start();
+        // _ = try std.Thread.spawn(.{}, NQ.workerThread, .{ *SwarmContext, self.job_queue });
         std.log.info("job queue start called", .{});
     }
 
     pub fn process(self: *Swarm, pkt: *nomad_proto.ProtocolPacket, connection: *std.net.Stream) !void {
         std.log.info("{any}\n{any}", .{ pkt, pkt.content.database });
 
-        try self.job_queue.tasks.enqueue(.{
-            .name = try std.fmt.allocPrint(self.gpa.allocator(), "{s}[{s}]", .{ self.name, @tagName(pkt.type) }),
-            .method = &Swarm._process,
-            .ctx = @constCast(&SwarmContext{
+        try self.job_queue.push(.{
+            .name = try std.fmt.allocPrint(std.heap.page_allocator, "{s}[{s}]", .{ self.name, @tagName(pkt.type) }),
+            .execute = &Swarm._process,
+            .context = @constCast(&SwarmContext{
                 .packet = pkt,
                 .swarm = self,
                 .connection = connection,
@@ -229,7 +227,7 @@ pub const Swarm = struct {
         return null;
     }
 
-    fn _process(ctx: *SwarmContext) SwarmQueue.Status {
+    fn _process(ctx: *SwarmContext) void {
         const pkt = ctx.packet orelse unreachable;
         var swarm = ctx.swarm orelse unreachable;
 
@@ -254,7 +252,7 @@ pub const Swarm = struct {
             .EXECUTION => {},
         }
 
-        return .done;
+        return;
     }
 };
 
